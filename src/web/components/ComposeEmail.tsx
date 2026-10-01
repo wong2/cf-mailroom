@@ -165,7 +165,11 @@ export function ComposeEmailProvider({ children }: { children: ReactNode }) {
                   <Input id="compose-subject" required maxLength={MAX_SUBJECT_CHARS} placeholder="Add a subject" value={subject} onChange={(event) => setSubject(event.target.value)} className="min-w-0 border-0 shadow-none" />
                 </div>
                 <label htmlFor="compose-body" className="sr-only">Message</label>
-                <textarea id="compose-body" value={text} onChange={(event) => setText(event.target.value)} maxLength={MAX_MESSAGE_CHARS} placeholder="Write your message…" className="mt-3 min-h-44 w-full resize-y rounded-md bg-transparent px-2 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring sm:min-h-64" />
+                <textarea id="compose-body" value={text} onChange={(event) => setText(event.target.value)} onPaste={(event) => {
+                  if (event.currentTarget.matches(":disabled") || event.clipboardData.files.length === 0) return;
+                  event.preventDefault();
+                  addFiles(event.clipboardData.files);
+                }} maxLength={MAX_MESSAGE_CHARS} placeholder="Write your message…" className="mt-3 min-h-44 w-full resize-y rounded-md bg-transparent px-2 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring sm:min-h-64" />
               </fieldset>
               {files.length > 0 && <ul aria-label="Attachments" className="mb-4 space-y-1.5">{files.map((file, index) => (
                 <li key={`${file.name}-${index}`} className="flex min-w-0 items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-xs">

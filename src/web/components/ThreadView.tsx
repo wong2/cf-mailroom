@@ -284,7 +284,9 @@ export function ThreadView(props: {
 
   const addFiles = (list: FileList | null) => {
     if (!list) return;
-    setPendingFiles((current) => [...current, ...list].slice(0, 10));
+    // Clipboard files are only readable during the paste event.
+    const files = Array.from(list);
+    setPendingFiles((current) => [...current, ...files].slice(0, 10));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -441,6 +443,11 @@ export function ThreadView(props: {
                 setReplyText(event.target.value);
                 setUndoState(null);
                 if (!event.target.value.trim()) setUsedDraftId(null);
+              }}
+              onPaste={(event) => {
+                if (composerBusy || event.clipboardData.files.length === 0) return;
+                event.preventDefault();
+                addFiles(event.clipboardData.files);
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
