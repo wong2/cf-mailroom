@@ -1,4 +1,5 @@
 import type { Attachment } from "../shared/types";
+import { unwrapGoogleRedirect } from "../shared/linkify";
 import { collapseEmailQuotes } from "./email-quotes";
 
 const BLOCKED_ELEMENTS = [
@@ -107,11 +108,18 @@ export function buildEmailHtmlDocument(html: string, attachments: Attachment[]):
   }
 
   for (const link of document.querySelectorAll("a, area")) {
-    const destination = safeLinkDestination(link.getAttribute("href") ?? "");
+    const original = link.getAttribute("href")?.trim() ?? "";
+    const destination = safeLinkDestination(unwrapGoogleRedirect(
+      original.startsWith("//") ? `https:${original}` : original,
+    ));
     if (!destination) {
       link.removeAttribute("href");
       link.removeAttribute("target");
       continue;
+    }
+    // Keep descriptive labels and images; shorten labels that are the raw wrapper URL.
+    if (destination !== original && link.textContent?.trim() === original) {
+      link.textContent = destination;
     }
     link.setAttribute("href", destination);
     link.setAttribute("target", "_blank");

@@ -41,16 +41,43 @@ export function linkifyPlainText(input: string): PlainTextSegment[] {
     if (!value || !isValidWebUrl(value)) continue;
 
     if (start > cursor) segments.push({ type: "text", value: input.slice(cursor, start) });
+    const href = value.toLowerCase().startsWith("www.") ? `https://${value}` : value;
+    const destination = unwrapGoogleRedirect(href);
     segments.push({
       type: "link",
-      value,
-      href: value.toLowerCase().startsWith("www.") ? `https://${value}` : value,
+      value: destination === href ? value : destination,
+      href: destination,
     });
     cursor = start + value.length;
   }
 
   if (cursor < input.length) segments.push({ type: "text", value: input.slice(cursor) });
   return segments.length > 0 ? segments : [{ type: "text", value: input }];
+}
+
+// Decode only known wrappers, without fetching links or changing destination parameters.
+export function unwrapGoogleRedirect(value: string): string {
+  let destination = value;
+  for (let depth = 0; depth < 5; depth += 1) {
+    try {
+      const redirect = new URL(destination);
+      if (
+        !["http:", "https:"].includes(redirect.protocol) ||
+        !["google.com", "www.google.com"].includes(redirect.hostname) ||
+        redirect.pathname !== "/url" ||
+        redirect.username || redirect.password || redirect.port
+      ) break;
+
+      const target = redirect.searchParams.get("q") || redirect.searchParams.get("url");
+      if (!target) break;
+      const url = new URL(target);
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) break;
+      destination = target;
+    } catch {
+      break;
+    }
+  }
+  return destination;
 }
 
 export function removeRedundantGoogleRedirects(input: string): string {
@@ -105,15 +132,12 @@ function isValidWebUrl(value: string): boolean {
 }
 
 function googleRedirectTarget(value: string): string | null {
-  const match = value.match(/^<((?:https:\/\/)?www\.google\.com\/url\?[^<>]+)>$/i);
+  const match = value.match(/^<([^<>]+)>$/);
   if (!match) return null;
 
-  try {
-    const redirect = new URL(match[1].startsWith("http") ? match[1] : `https://${match[1]}`);
-    return redirect.searchParams.get("q") || redirect.searchParams.get("url");
-  } catch {
-    return null;
-  }
+  const candidate = /^www\./i.test(match[1]) ? `https://${match[1]}` : match[1];
+  const destination = unwrapGoogleRedirect(candidate);
+  return destination === candidate ? null : destination;
 }
 
 function sameUrl(left: string, right: string): boolean {
